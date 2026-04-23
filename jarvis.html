@@ -1,0 +1,2849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>JARVIS — Personal AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Exo+2:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<!-- marked.js for markdown rendering -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+:root {
+  --bg: #010a0f;
+  --bg2: #020e16;
+  --bg3: #031420;
+  --primary: #00e5ff;
+  --primary-dim: rgba(0,229,255,0.12);
+  --primary-glow: rgba(0,229,255,0.45);
+  --primary-mid: rgba(0,229,255,0.25);
+  --accent: #ff4d6d;
+  --accent2: #ffd60a;
+  --success: #39ff14;
+  --success-dim: rgba(57,255,20,0.15);
+  --text: #b8dde8;
+  --text-bright: #e0f4f8;
+  --text-dim: #3a6678;
+  --panel: rgba(1,18,28,0.92);
+  --panel2: rgba(0,12,22,0.95);
+  --border: rgba(0,229,255,0.18);
+  --border-bright: rgba(0,229,255,0.4);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* SCANLINES */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,229,255,0.012) 2px, rgba(0,229,255,0.012) 4px);
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* GRID */
+.grid-bg {
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+  background-size:50px 50px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* CORNER GLOW */
+.corner-glow {
+  position:fixed;
+  width:500px;
+  height:500px;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:0;
+}
+.corner-glow.tl { top:-200px; left:-200px; background: radial-gradient(circle, rgba(0,229,255,0.06) 0%, transparent 70%); }
+.corner-glow.br { bottom:-200px; right:-200px; background: radial-gradient(circle, rgba(0,100,255,0.05) 0%, transparent 70%); }
+
+/* =================== PIN LOCK =================== */
+#lockScreen {
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  background: var(--bg);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:32px;
+}
+
+.lock-logo {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+}
+
+.lock-ring {
+  width:80px;
+  height:80px;
+  border:2px solid var(--primary);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow: 0 0 30px var(--primary-glow), inset 0 0 20px rgba(0,229,255,0.08);
+  animation: lockPulse 3s ease-in-out infinite;
+  position:relative;
+}
+
+.lock-ring::before {
+  content:'';
+  position:absolute;
+  inset:-8px;
+  border:1px solid rgba(0,229,255,0.2);
+  border-radius:50%;
+  animation: lockPulse 3s ease-in-out infinite reverse;
+}
+
+@keyframes lockPulse {
+  0%,100%{box-shadow:0 0 20px var(--primary-glow),inset 0 0 10px rgba(0,229,255,0.08);}
+  50%{box-shadow:0 0 50px var(--primary-glow),inset 0 0 25px rgba(0,229,255,0.15);}
+}
+
+.lock-title {
+  font-family:'Orbitron',monospace;
+  font-size:32px;
+  font-weight:900;
+  letter-spacing:10px;
+  color:var(--primary);
+  text-shadow:0 0 30px var(--primary-glow);
+}
+
+.lock-sub {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  letter-spacing:4px;
+  color:var(--text-dim);
+}
+
+.pin-display {
+  display:flex;
+  gap:14px;
+  align-items:center;
+}
+
+.pin-dot {
+  width:16px;
+  height:16px;
+  border:1.5px solid var(--primary);
+  border-radius:50%;
+  transition:all 0.15s;
+  background:transparent;
+}
+
+.pin-dot.filled {
+  background:var(--primary);
+  box-shadow:0 0 10px var(--primary-glow);
+}
+
+.pin-dot.error {
+  border-color:var(--accent);
+  background:var(--accent);
+  box-shadow:0 0 10px rgba(255,77,109,0.6);
+}
+
+.pin-pad {
+  display:grid;
+  grid-template-columns:repeat(3,70px);
+  gap:12px;
+}
+
+.pin-key {
+  height:60px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+  font-family:'Orbitron',monospace;
+  font-size:18px;
+  font-weight:500;
+  cursor:pointer;
+  border-radius:4px;
+  transition:all 0.15s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.pin-key:hover {
+  border-color:var(--primary);
+  color:var(--primary);
+  box-shadow:0 0 14px var(--primary-dim);
+  background:var(--primary-dim);
+}
+
+.pin-key:active { transform:scale(0.94); }
+
+.pin-key.del {
+  font-size:13px;
+  font-family:'Share Tech Mono',monospace;
+  letter-spacing:1px;
+  color:var(--text-dim);
+}
+
+.pin-hint {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  color:var(--text-dim);
+  letter-spacing:2px;
+  text-align:center;
+}
+
+.pin-error-msg {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;
+  color:var(--accent);
+  letter-spacing:2px;
+  min-height:16px;
+}
+
+/* =================== MAIN APP =================== */
+#app {
+  position:relative;
+  z-index:1;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  max-width:1100px;
+  margin:0 auto;
+  padding:16px 20px;
+}
+
+/* HEADER */
+header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:16px;
+  flex-shrink:0;
+}
+
+.header-left {
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.header-icon {
+  width:40px;
+  height:40px;
+  border:1.5px solid var(--primary);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 0 16px var(--primary-glow);
+  animation:headerPulse 4s ease-in-out infinite;
+  flex-shrink:0;
+}
+
+@keyframes headerPulse {
+  0%,100%{box-shadow:0 0 10px var(--primary-glow);}
+  50%{box-shadow:0 0 28px var(--primary-glow);}
+}
+
+.header-titles { display:flex; flex-direction:column; }
+
+.header-name {
+  font-family:'Orbitron',monospace;
+  font-size:20px;
+  font-weight:700;
+  letter-spacing:6px;
+  color:var(--primary);
+  text-shadow:0 0 20px var(--primary-glow);
+  line-height:1;
+}
+
+.header-tagline {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  letter-spacing:3px;
+  color:var(--text-dim);
+  margin-top:3px;
+}
+
+.header-right {
+  display:flex;
+  align-items:center;
+  gap:20px;
+}
+
+.stat-chips {
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.chip {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  color:var(--text-dim);
+  padding:4px 10px;
+  border:1px solid var(--border);
+  border-radius:2px;
+  background:var(--panel);
+  white-space:nowrap;
+}
+
+.chip .dot {
+  width:5px; height:5px;
+  border-radius:50%;
+  background:var(--success);
+  box-shadow:0 0 5px var(--success);
+  animation:blink 2s ease-in-out infinite;
+}
+
+.chip .dot.warn { background:var(--accent2); box-shadow:0 0 5px var(--accent2); }
+.chip .dot.off { background:var(--text-dim); box-shadow:none; animation:none; }
+
+/* HOTWORD indicator */
+.chip.hotword-active {
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+.chip.hotword-active .dot {
+  background: var(--accent2);
+  box-shadow: 0 0 5px var(--accent2);
+}
+
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+.lock-btn {
+  background:none;
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  padding:5px 10px;
+  cursor:pointer;
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  letter-spacing:1px;
+  border-radius:2px;
+  transition:all 0.2s;
+}
+
+.lock-btn:hover {
+  border-color:var(--accent);
+  color:var(--accent);
+}
+
+/* TABS */
+.tabs {
+  display:flex;
+  gap:2px;
+  margin-bottom:14px;
+  flex-shrink:0;
+}
+
+.tab {
+  background:none;
+  border:1px solid var(--border);
+  border-bottom:none;
+  color:var(--text-dim);
+  padding:7px 16px;
+  cursor:pointer;
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  letter-spacing:1.5px;
+  border-radius:3px 3px 0 0;
+  transition:all 0.2s;
+}
+
+.tab:hover { color:var(--primary); border-color:var(--primary); }
+
+.tab.active {
+  background:var(--primary-dim);
+  border-color:var(--primary);
+  color:var(--primary);
+  box-shadow:0 0 10px var(--primary-dim);
+}
+
+/* CONTENT AREA */
+.content {
+  flex:1;
+  overflow:hidden;
+  display:flex;
+  gap:16px;
+  min-height:0;
+}
+
+/* PANELS */
+.panel-view {
+  display:none;
+  flex:1;
+  min-height:0;
+}
+
+.panel-view.active { display:flex; }
+
+/* =================== CHAT VIEW =================== */
+#chatView {
+  gap:16px;
+}
+
+.chat-col {
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  min-height:0;
+  gap:12px;
+}
+
+.chat-window {
+  flex:1;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:18px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  position:relative;
+  min-height:0;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary-dim) transparent;
+}
+
+.chat-window::before {
+  content:'COMM CHANNEL';
+  position:absolute;
+  top:-9px; left:14px;
+  background:var(--bg);
+  padding:0 8px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  letter-spacing:2px;
+  color:var(--primary);
+}
+
+/* IMAGE DROP ZONE */
+.chat-window.drag-over {
+  border-color: var(--primary);
+  box-shadow: 0 0 20px var(--primary-dim), inset 0 0 30px rgba(0,229,255,0.04);
+}
+
+.drop-hint {
+  position:absolute;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,10,15,0.7);
+  border-radius:4px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px;
+  letter-spacing:3px;
+  color:var(--primary);
+  pointer-events:none;
+}
+
+.chat-window.drag-over .drop-hint { display:flex; }
+
+.msg { display:flex; flex-direction:column; gap:3px; animation:msgIn 0.25s ease; }
+
+@keyframes msgIn {
+  from{opacity:0;transform:translateY(6px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+.msg.user { align-items:flex-end; }
+.msg.jarvis { align-items:flex-start; }
+.msg.system { align-items:center; }
+
+.msg-who {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  letter-spacing:2px;
+  color:var(--text-dim);
+}
+
+.msg-body {
+  max-width:82%;
+  padding:10px 14px;
+  font-size:14px;
+  font-weight:400;
+  line-height:1.6;
+  border-radius:3px;
+}
+
+/* Markdown inside jarvis messages */
+.msg.jarvis .msg-body h1,.msg.jarvis .msg-body h2,.msg.jarvis .msg-body h3 {
+  font-family:'Orbitron',monospace;
+  color:var(--primary);
+  margin:8px 0 4px;
+  font-size:13px;
+  letter-spacing:2px;
+}
+.msg.jarvis .msg-body p { margin-bottom:6px; }
+.msg.jarvis .msg-body p:last-child { margin-bottom:0; }
+.msg.jarvis .msg-body ul,.msg.jarvis .msg-body ol { padding-left:18px; margin-bottom:6px; }
+.msg.jarvis .msg-body li { margin-bottom:3px; }
+.msg.jarvis .msg-body code {
+  background:rgba(0,229,255,0.1);
+  border:1px solid rgba(0,229,255,0.2);
+  padding:1px 5px;
+  border-radius:2px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px;
+  color:var(--primary);
+}
+.msg.jarvis .msg-body pre {
+  background:rgba(0,0,0,0.4);
+  border:1px solid var(--border);
+  border-left:2px solid var(--primary);
+  padding:10px 12px;
+  border-radius:3px;
+  overflow-x:auto;
+  margin:8px 0;
+}
+.msg.jarvis .msg-body pre code {
+  background:none;
+  border:none;
+  padding:0;
+  font-size:12px;
+}
+.msg.jarvis .msg-body strong { color:var(--text-bright); font-weight:600; }
+.msg.jarvis .msg-body a { color:var(--primary); text-decoration:underline; }
+.msg.jarvis .msg-body blockquote {
+  border-left:2px solid var(--primary-mid);
+  padding-left:10px;
+  color:var(--text-dim);
+  margin:6px 0;
+  font-style:italic;
+}
+
+.msg.user .msg-body {
+  background:rgba(0,229,255,0.1);
+  border:1px solid rgba(0,229,255,0.28);
+  color:var(--primary);
+  border-radius:4px 4px 0 4px;
+}
+
+.msg.jarvis .msg-body {
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-left:2px solid var(--primary);
+  color:var(--text-bright);
+  border-radius:0 4px 4px 4px;
+}
+
+.msg.system .msg-body {
+  background:rgba(57,255,20,0.06);
+  border:1px solid rgba(57,255,20,0.2);
+  color:var(--success);
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;
+  letter-spacing:1px;
+  border-radius:3px;
+  max-width:100%;
+  text-align:center;
+}
+
+.msg-ts {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  color:var(--text-dim);
+}
+
+/* Image message */
+.msg-image {
+  max-width:280px;
+  border-radius:3px;
+  border:1px solid var(--border);
+  margin-bottom:4px;
+}
+
+/* Streaming cursor */
+.stream-cursor {
+  display:inline-block;
+  width:8px;
+  height:14px;
+  background:var(--primary);
+  margin-left:2px;
+  vertical-align:middle;
+  animation:cursorBlink 0.6s ease-in-out infinite;
+}
+@keyframes cursorBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+.thinking-dots span {
+  display:inline-block;
+  animation:dotP 1.2s ease-in-out infinite;
+  font-size:18px;
+  line-height:1;
+}
+.thinking-dots span:nth-child(2){animation-delay:0.2s;}
+.thinking-dots span:nth-child(3){animation-delay:0.4s;}
+
+@keyframes dotP {
+  0%,80%,100%{opacity:0.2;transform:scale(0.8);}
+  40%{opacity:1;transform:scale(1.1);}
+}
+
+/* VISUALIZER */
+.visualizer {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  height:28px;
+}
+
+.vbar {
+  width:3px;
+  background:var(--primary);
+  border-radius:2px;
+  height:3px;
+  opacity:0.3;
+  transition:height 0.1s;
+}
+
+.visualizer.active .vbar {
+  opacity:0.9;
+  animation:vbarA 0.7s ease-in-out infinite;
+}
+
+.vbar:nth-child(1){animation-delay:0s;}
+.vbar:nth-child(2){animation-delay:0.1s;}
+.vbar:nth-child(3){animation-delay:0.2s;}
+.vbar:nth-child(4){animation-delay:0.14s;}
+.vbar:nth-child(5){animation-delay:0.05s;}
+.vbar:nth-child(6){animation-delay:0.22s;}
+.vbar:nth-child(7){animation-delay:0.08s;}
+.vbar:nth-child(8){animation-delay:0.28s;}
+.vbar:nth-child(9){animation-delay:0.16s;}
+.vbar:nth-child(10){animation-delay:0.32s;}
+
+@keyframes vbarA { 0%,100%{height:3px;} 50%{height:22px;} }
+
+/* INPUT ROW */
+.input-row {
+  display:flex;
+  gap:8px;
+  align-items:stretch;
+  flex-shrink:0;
+}
+
+.input-wrap { flex:1; position:relative; }
+
+.input-wrap::before {
+  content:'>';
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  color:var(--primary);
+  font-family:'Share Tech Mono',monospace;
+  font-size:13px;
+  pointer-events:none;
+}
+
+input[type=text] {
+  width:100%;
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+  padding:11px 12px 11px 28px;
+  font-family:'Exo 2',sans-serif;
+  font-size:14px;
+  font-weight:500;
+  outline:none;
+  border-radius:3px;
+  transition:border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type=text]:focus {
+  border-color:var(--primary);
+  box-shadow:0 0 14px var(--primary-dim);
+}
+
+input[type=text]::placeholder { color:var(--text-dim); font-weight:300; }
+
+.btn {
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  padding:10px 14px;
+  cursor:pointer;
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  letter-spacing:1px;
+  border-radius:3px;
+  transition:all 0.18s;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+}
+
+.btn:hover {
+  border-color:var(--primary);
+  color:var(--primary);
+  box-shadow:0 0 10px var(--primary-dim);
+}
+
+.btn.primary {
+  border-color:var(--primary);
+  color:var(--primary);
+  background:var(--primary-dim);
+}
+
+.btn.primary:hover {
+  background:rgba(0,229,255,0.22);
+  box-shadow:0 0 18px var(--primary-mid);
+}
+
+.btn.listening {
+  border-color:var(--accent);
+  color:var(--accent);
+  background:rgba(255,77,109,0.12);
+  animation:listenGlow 0.8s ease-in-out infinite;
+}
+
+@keyframes listenGlow {
+  0%,100%{box-shadow:0 0 8px rgba(255,77,109,0.3);}
+  50%{box-shadow:0 0 22px rgba(255,77,109,0.7);}
+}
+
+/* IMAGE PREVIEW IN INPUT */
+.img-preview-bar {
+  display:none;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:3px;
+  flex-shrink:0;
+}
+.img-preview-bar.show { display:flex; }
+.img-preview-thumb {
+  width:36px;
+  height:36px;
+  object-fit:cover;
+  border-radius:2px;
+  border:1px solid var(--border);
+}
+.img-preview-name {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  color:var(--text-dim);
+  flex:1;
+}
+.img-preview-del {
+  background:none;
+  border:none;
+  color:var(--text-dim);
+  cursor:pointer;
+  font-size:14px;
+  transition:color 0.2s;
+}
+.img-preview-del:hover { color:var(--accent); }
+
+/* SIDEBAR */
+.sidebar {
+  width:240px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  flex-shrink:0;
+  overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary-dim) transparent;
+}
+
+.scard {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:14px;
+  position:relative;
+}
+
+.scard-title {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  letter-spacing:2px;
+  color:var(--primary);
+  position:absolute;
+  top:-8px; left:10px;
+  background:var(--bg);
+  padding:0 6px;
+}
+
+/* CLOCK */
+.clock {
+  text-align:center;
+  padding-top:4px;
+}
+
+.clock-t {
+  font-family:'Orbitron',monospace;
+  font-size:26px;
+  font-weight:700;
+  color:var(--primary);
+  text-shadow:0 0 20px var(--primary-glow);
+  letter-spacing:2px;
+}
+
+.clock-d {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  color:var(--text-dim);
+  letter-spacing:2px;
+  margin-top:4px;
+}
+
+/* QUICK CMDS */
+.qgrid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin-top:6px;
+}
+
+.qbtn {
+  background:rgba(0,229,255,0.04);
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  padding:8px 6px;
+  cursor:pointer;
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  letter-spacing:1px;
+  border-radius:2px;
+  transition:all 0.18s;
+  text-align:center;
+  line-height:1.5;
+}
+
+.qbtn:hover {
+  border-color:var(--primary);
+  color:var(--primary);
+  background:var(--primary-dim);
+}
+
+/* INTERNET TOGGLE */
+.inet-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:6px;
+}
+
+.inet-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  color:var(--text-dim);
+}
+
+.toggle {
+  position:relative;
+  width:44px;
+  height:22px;
+}
+
+.toggle input { display:none; }
+
+.toggle-slider {
+  position:absolute;
+  inset:0;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:11px;
+  cursor:pointer;
+  transition:all 0.3s;
+}
+
+.toggle-slider::before {
+  content:'';
+  position:absolute;
+  width:14px; height:14px;
+  left:3px; top:3px;
+  background:var(--text-dim);
+  border-radius:50%;
+  transition:all 0.3s;
+}
+
+.toggle input:checked + .toggle-slider {
+  border-color:var(--success);
+  background:var(--success-dim);
+}
+
+.toggle input:checked + .toggle-slider::before {
+  background:var(--success);
+  box-shadow:0 0 8px var(--success);
+  transform:translateX(22px);
+}
+
+.inet-status {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  letter-spacing:1px;
+  margin-top:6px;
+}
+
+.inet-status.on { color:var(--success); }
+.inet-status.off { color:var(--accent); }
+
+/* MEMORY CARD */
+.mem-item {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  padding:5px 0;
+  border-bottom:1px solid rgba(0,229,255,0.06);
+  font-size:11px;
+  gap:8px;
+}
+.mem-item:last-child { border-bottom:none; }
+.mem-key {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  color:var(--primary);
+  letter-spacing:1px;
+  white-space:nowrap;
+  flex-shrink:0;
+}
+.mem-val {
+  color:var(--text);
+  font-size:10px;
+  line-height:1.4;
+  text-align:right;
+}
+.mem-empty {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  color:var(--text-dim);
+  letter-spacing:1px;
+  text-align:center;
+  padding:6px 0;
+}
+
+/* REMINDERS IN SIDEBAR */
+.reminder-sidebar-item {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:6px 0;
+  border-bottom:1px solid rgba(255,214,10,0.1);
+  font-size:11px;
+  gap:6px;
+}
+.reminder-sidebar-item:last-child { border-bottom:none; }
+.rsb-text { color:var(--accent2); font-size:10px; flex:1; line-height:1.3; }
+.rsb-time {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  color:var(--text-dim);
+  white-space:nowrap;
+}
+.rsb-del {
+  background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:11px;
+  transition:color 0.2s;
+}
+.rsb-del:hover { color:var(--accent); }
+.rem-empty {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  color:var(--text-dim);
+  letter-spacing:1px;
+  text-align:center;
+  padding:4px 0;
+}
+
+/* REMINDER NOTIFICATION */
+.reminder-toast {
+  position:fixed;
+  bottom:30px;
+  right:30px;
+  z-index:2000;
+  background:var(--bg2);
+  border:1px solid var(--accent2);
+  border-radius:4px;
+  padding:16px 20px;
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  box-shadow:0 0 30px rgba(255,214,10,0.3);
+  animation:toastIn 0.3s ease;
+  max-width:320px;
+}
+@keyframes toastIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+.toast-icon { font-size:20px; flex-shrink:0; }
+.toast-body { flex:1; }
+.toast-title {
+  font-family:'Orbitron',monospace;
+  font-size:10px;
+  letter-spacing:2px;
+  color:var(--accent2);
+  margin-bottom:4px;
+}
+.toast-text { font-size:13px; color:var(--text-bright); line-height:1.4; }
+.toast-close {
+  background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:16px;
+  transition:color 0.2s; flex-shrink:0;
+}
+.toast-close:hover { color:var(--accent); }
+
+/* =================== NOTES VIEW =================== */
+#notesView {
+  flex-direction:column;
+  gap:12px;
+}
+
+.notes-toolbar {
+  display:flex;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.notes-input {
+  flex:1;
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+  padding:10px 14px;
+  font-family:'Exo 2',sans-serif;
+  font-size:14px;
+  outline:none;
+  border-radius:3px;
+}
+
+.notes-input:focus { border-color:var(--primary); }
+.notes-input::placeholder { color:var(--text-dim); }
+
+.notes-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:12px;
+  overflow-y:auto;
+  align-content:start;
+  flex:1;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary-dim) transparent;
+  padding-right:4px;
+}
+
+.note-card {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-top:2px solid var(--primary);
+  border-radius:3px;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  animation:msgIn 0.25s ease;
+}
+
+.note-card-text {
+  font-size:14px;
+  line-height:1.5;
+  color:var(--text-bright);
+  flex:1;
+}
+
+.note-card-footer {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.note-card-ts {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  color:var(--text-dim);
+}
+
+.note-del {
+  background:none;
+  border:none;
+  color:var(--text-dim);
+  cursor:pointer;
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  transition:color 0.2s;
+  padding:2px 6px;
+  border:1px solid transparent;
+  border-radius:2px;
+}
+
+.note-del:hover { color:var(--accent); border-color:var(--accent); }
+
+.empty-state {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  color:var(--text-dim);
+  text-align:center;
+  padding:40px;
+  letter-spacing:2px;
+  grid-column:1/-1;
+}
+
+/* =================== HISTORY VIEW =================== */
+#historyView {
+  flex-direction:column;
+  gap:12px;
+}
+
+.history-toolbar {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-shrink:0;
+}
+
+.history-title {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  letter-spacing:2px;
+  color:var(--text-dim);
+}
+
+.history-list {
+  flex:1;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary-dim) transparent;
+  padding-right:4px;
+}
+
+.hist-item {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:3px;
+  padding:12px 14px;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+
+.hist-role {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  letter-spacing:1px;
+  width:48px;
+  flex-shrink:0;
+  padding-top:2px;
+}
+
+.hist-role.you { color:var(--primary); }
+.hist-role.jarvis { color:var(--success); }
+
+.hist-text { font-size:13px; color:var(--text); line-height:1.5; flex:1; }
+
+.hist-ts {
+  font-family:'Share Tech Mono',monospace;
+  font-size:8px;
+  color:var(--text-dim);
+  white-space:nowrap;
+  flex-shrink:0;
+}
+
+/* =================== PRIVACY VIEW =================== */
+#privacyView {
+  flex-direction:column;
+  gap:16px;
+  overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary-dim) transparent;
+}
+
+.priv-section {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-left:2px solid var(--primary);
+  border-radius:3px;
+  padding:16px 18px;
+}
+
+.priv-h {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  letter-spacing:2px;
+  color:var(--primary);
+  margin-bottom:10px;
+}
+
+.priv-body {
+  font-size:13px;
+  line-height:1.7;
+  color:var(--text);
+}
+
+.priv-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+}
+
+.priv-row:last-child { border-bottom:none; }
+
+.priv-key { color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:10px; }
+.priv-val { color:var(--text-bright); }
+
+.priv-badge {
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:2px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  letter-spacing:1px;
+}
+
+.priv-badge.local { background:var(--success-dim); border:1px solid rgba(57,255,20,0.3); color:var(--success); }
+.priv-badge.encrypted { background:rgba(0,229,255,0.08); border:1px solid var(--border); color:var(--primary); }
+
+/* PIN CHANGE */
+.pin-change-form {
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-top:10px;
+}
+
+.pin-change-form input {
+  background:var(--bg3);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+  padding:8px 12px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:14px;
+  letter-spacing:4px;
+  width:120px;
+  outline:none;
+  border-radius:3px;
+  text-align:center;
+}
+
+.pin-change-form input:focus { border-color:var(--primary); }
+
+/* MEMORY EDIT */
+.mem-edit-row {
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+}
+.mem-edit-input {
+  flex:1;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+  padding:7px 10px;
+  font-family:'Exo 2',sans-serif;
+  font-size:12px;
+  outline:none;
+  border-radius:3px;
+}
+.mem-edit-input:focus { border-color:var(--primary); }
+.mem-edit-input::placeholder { color:var(--text-dim); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--primary-dim);border-radius:2px;}
+
+/* WEATHER CARD */
+.weather-card {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:14px;
+  position:relative;
+}
+
+.weather-temp {
+  font-family:'Orbitron',monospace;
+  font-size:32px;
+  font-weight:700;
+  color:var(--primary);
+  text-shadow:0 0 16px var(--primary-glow);
+}
+
+.weather-desc {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  color:var(--text-dim);
+  letter-spacing:1px;
+  margin-top:4px;
+}
+
+.weather-loc {
+  font-size:12px;
+  color:var(--text);
+  margin-top:2px;
+}
+
+/* INTERNET LOCK MODAL */
+.modal-overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(1,10,15,0.85);
+  z-index:500;
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+
+.modal-overlay.show { display:flex; }
+
+.modal {
+  background:var(--bg2);
+  border:1px solid var(--primary);
+  border-radius:4px;
+  padding:28px;
+  width:300px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+  box-shadow:0 0 40px var(--primary-glow);
+}
+
+.modal-title {
+  font-family:'Orbitron',monospace;
+  font-size:14px;
+  letter-spacing:3px;
+  color:var(--primary);
+}
+
+.modal-body {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;
+  color:var(--text-dim);
+  text-align:center;
+  letter-spacing:1px;
+  line-height:1.6;
+}
+
+.modal-pin-display {
+  display:flex;
+  gap:10px;
+}
+
+.modal-pin-dot {
+  width:12px;height:12px;
+  border:1.5px solid var(--primary);
+  border-radius:50%;
+  background:transparent;
+  transition:all 0.15s;
+}
+
+.modal-pin-dot.filled {
+  background:var(--primary);
+  box-shadow:0 0 8px var(--primary-glow);
+}
+
+.modal-pin-pad {
+  display:grid;
+  grid-template-columns:repeat(3,56px);
+  gap:8px;
+}
+
+.modal-key {
+  height:48px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+  font-family:'Orbitron',monospace;
+  font-size:16px;
+  cursor:pointer;
+  border-radius:3px;
+  transition:all 0.15s;
+}
+
+.modal-key:hover { border-color:var(--primary); color:var(--primary); background:var(--primary-dim); }
+.modal-key.del { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text-dim); }
+.modal-err { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--accent); min-height:14px; }
+
+/* TTS config section */
+.tts-section { display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+.tts-row { display:flex; gap:8px; align-items:center; }
+.tts-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); flex:0 0 80px; }
+.tts-input {
+  flex:1;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  color:var(--text-bright);
+  padding:6px 10px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;
+  outline:none;
+  border-radius:3px;
+}
+.tts-input:focus { border-color:var(--primary); }
+.tts-status { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:1px; }
+.tts-status.ok { color:var(--success); }
+.tts-status.fail { color:var(--accent); }
+.tts-status.idle { color:var(--text-dim); }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="corner-glow tl"></div>
+<div class="corner-glow br"></div>
+
+<!-- LOCK SCREEN -->
+<div id="lockScreen">
+  <div class="lock-logo">
+    <div class="lock-ring">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="1.5">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        <path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+      </svg>
+    </div>
+    <div class="lock-title">JARVIS</div>
+    <div class="lock-sub">ENTER PIN TO ACCESS</div>
+  </div>
+
+  <div class="pin-display" id="lockPinDisplay">
+    <div class="pin-dot" id="ld0"></div>
+    <div class="pin-dot" id="ld1"></div>
+    <div class="pin-dot" id="ld2"></div>
+    <div class="pin-dot" id="ld3"></div>
+  </div>
+
+  <div class="pin-pad" id="lockPad">
+    <button class="pin-key" data-v="1">1</button>
+    <button class="pin-key" data-v="2">2</button>
+    <button class="pin-key" data-v="3">3</button>
+    <button class="pin-key" data-v="4">4</button>
+    <button class="pin-key" data-v="5">5</button>
+    <button class="pin-key" data-v="6">6</button>
+    <button class="pin-key" data-v="7">7</button>
+    <button class="pin-key" data-v="8">8</button>
+    <button class="pin-key" data-v="9">9</button>
+    <button class="pin-key del" data-v="del">DEL</button>
+    <button class="pin-key" data-v="0">0</button>
+    <button class="pin-key" data-v="ok">OK</button>
+  </div>
+
+  <div class="pin-error-msg" id="lockErr"></div>
+  <div class="pin-hint">DEFAULT PIN: 1234 &nbsp;|&nbsp; CHANGE IN PRIVACY SETTINGS</div>
+</div>
+
+<!-- INTERNET PIN MODAL -->
+<div class="modal-overlay" id="inetModal">
+  <div class="modal">
+    <div class="modal-title">INTERNET LOCK</div>
+    <div class="modal-body">Internet access is locked.<br>Enter your PIN to enable.</div>
+    <div class="modal-pin-display" id="modalPinDisplay">
+      <div class="modal-pin-dot" id="mpd0"></div>
+      <div class="modal-pin-dot" id="mpd1"></div>
+      <div class="modal-pin-dot" id="mpd2"></div>
+      <div class="modal-pin-dot" id="mpd3"></div>
+    </div>
+    <div class="modal-pin-pad">
+      <button class="modal-key" data-mv="1">1</button>
+      <button class="modal-key" data-mv="2">2</button>
+      <button class="modal-key" data-mv="3">3</button>
+      <button class="modal-key" data-mv="4">4</button>
+      <button class="modal-key" data-mv="5">5</button>
+      <button class="modal-key" data-mv="6">6</button>
+      <button class="modal-key" data-mv="7">7</button>
+      <button class="modal-key" data-mv="8">8</button>
+      <button class="modal-key" data-mv="9">9</button>
+      <button class="modal-key del" data-mv="del">DEL</button>
+      <button class="modal-key" data-mv="0">0</button>
+      <button class="modal-key del" data-mv="cancel">ESC</button>
+    </div>
+    <div class="modal-err" id="modalErr"></div>
+  </div>
+</div>
+
+<!-- REMINDER TOAST (populated dynamically) -->
+<div id="toastContainer"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <header>
+    <div class="header-left">
+      <div class="header-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="1.5">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          <path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+        </svg>
+      </div>
+      <div class="header-titles">
+        <div class="header-name">JARVIS</div>
+        <div class="header-tagline">PERSONAL AI ASSISTANT — v3.0</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="stat-chips">
+        <div class="chip"><div class="dot"></div> AI ONLINE</div>
+        <div class="chip" id="batteryChip"><div class="dot warn"></div> BATTERY --</div>
+        <div class="chip" id="inetChip"><div class="dot off" id="inetDot"></div> <span id="inetLabel">NET LOCKED</span></div>
+        <div class="chip" id="hotwordChip"><div class="dot off" id="hotwordDot"></div> <span id="hotwordLabel">HOTWORD OFF</span></div>
+      </div>
+      <button class="lock-btn" onclick="lockApp()">LOCK</button>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('chat')">CHAT</button>
+    <button class="tab" onclick="switchTab('notes')">NOTES</button>
+    <button class="tab" onclick="switchTab('history')">HISTORY</button>
+    <button class="tab" onclick="switchTab('privacy')">PRIVACY</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- CHAT -->
+    <div class="panel-view active" id="chatView">
+      <div class="chat-col">
+        <div class="chat-window" id="chatWindow">
+          <div class="drop-hint">DROP IMAGE TO ANALYZE</div>
+        </div>
+        <div class="img-preview-bar" id="imgPreviewBar">
+          <img class="img-preview-thumb" id="imgPreviewThumb" src="" alt=""/>
+          <span class="img-preview-name" id="imgPreviewName">image.jpg</span>
+          <button class="img-preview-del" onclick="clearImageAttachment()">✕</button>
+        </div>
+        <div class="visualizer" id="visualizer">
+          <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+          <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+          <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+          <div class="vbar"></div>
+        </div>
+        <div class="input-row">
+          <div class="input-wrap">
+            <input type="text" id="textInput" placeholder="Speak or type... say 'Hey Jarvis' anytime" autocomplete="off"/>
+          </div>
+          <button class="btn" id="micBtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="2" width="6" height="11" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="8" y1="22" x2="16" y2="22"/>
+            </svg>
+            MIC
+          </button>
+          <button class="btn primary" id="sendBtn">SEND</button>
+        </div>
+      </div>
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="scard">
+          <div class="scard-title">SYSTEM CLOCK</div>
+          <div class="clock">
+            <div class="clock-t" id="clockT">--:--:--</div>
+            <div class="clock-d" id="clockD">--- -- ----</div>
+          </div>
+        </div>
+
+        <div class="scard">
+          <div class="scard-title">INTERNET ACCESS</div>
+          <div class="inet-row" style="margin-top:6px;">
+            <span class="inet-label">ENABLE</span>
+            <label class="toggle">
+              <input type="checkbox" id="inetToggle"/>
+              <div class="toggle-slider"></div>
+            </label>
+          </div>
+          <div class="inet-status off" id="inetStatusText">LOCKED — PIN REQUIRED</div>
+        </div>
+
+        <div class="scard">
+          <div class="scard-title">HOTWORD</div>
+          <div class="inet-row" style="margin-top:6px;">
+            <span class="inet-label">HEY JARVIS</span>
+            <label class="toggle">
+              <input type="checkbox" id="hotwordToggle"/>
+              <div class="toggle-slider"></div>
+            </label>
+          </div>
+          <div class="inet-status off" id="hotwordStatusText">ALWAYS-ON MIC OFF</div>
+        </div>
+
+        <div class="scard">
+          <div class="scard-title">MEMORY</div>
+          <div id="memoryDisplay" style="margin-top:6px;">
+            <div class="mem-empty">NO FACTS LEARNED YET</div>
+          </div>
+        </div>
+
+        <div class="scard">
+          <div class="scard-title">ACTIVE REMINDERS</div>
+          <div id="reminderSidebarList" style="margin-top:6px;">
+            <div class="rem-empty">NO ACTIVE REMINDERS</div>
+          </div>
+        </div>
+
+        <div class="scard">
+          <div class="scard-title">QUICK COMMANDS</div>
+          <div class="qgrid">
+            <button class="qbtn" onclick="sendQ('What time is it?')">TIME</button>
+            <button class="qbtn" onclick="sendQ('What is my battery?')">BATTERY</button>
+            <button class="qbtn" onclick="sendQ('Show my notes')">NOTES</button>
+            <button class="qbtn" onclick="sendQ('What can you do?')">HELP</button>
+            <button class="qbtn" onclick="sendQ('Check the weather')">WEATHER</button>
+            <button class="qbtn" onclick="sendQ('Tell me a fact')">FACT</button>
+            <button class="qbtn" onclick="sendQ('Set a reminder')">REMIND</button>
+            <button class="qbtn" onclick="sendQ('Motivate me')">QUOTE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="panel-view" id="notesView">
+      <div style="display:flex;flex-direction:column;flex:1;gap:12px;min-height:0;width:100%;">
+        <div class="notes-toolbar">
+          <input type="text" class="notes-input" id="noteInput" placeholder="Type a note and press Save..."/>
+          <button class="btn primary" onclick="addNoteManual()">SAVE NOTE</button>
+          <button class="btn" onclick="clearNotes()">CLEAR ALL</button>
+        </div>
+        <div class="notes-grid" id="notesGrid"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="panel-view" id="historyView">
+      <div style="display:flex;flex-direction:column;flex:1;gap:12px;min-height:0;width:100%;">
+        <div class="history-toolbar">
+          <div class="history-title">CONVERSATION HISTORY — SAVED LOCALLY</div>
+          <button class="btn" onclick="clearHistory()">CLEAR HISTORY</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+      </div>
+    </div>
+
+    <!-- PRIVACY -->
+    <div class="panel-view" id="privacyView">
+      <div style="display:flex;flex-direction:column;gap:14px;width:100%;">
+
+        <div class="priv-section">
+          <div class="priv-h">DATA STORAGE</div>
+          <div class="priv-row"><span class="priv-key">CONVERSATION HISTORY</span><span class="priv-badge local">LOCAL ONLY</span></div>
+          <div class="priv-row"><span class="priv-key">NOTES</span><span class="priv-badge local">LOCAL ONLY</span></div>
+          <div class="priv-row"><span class="priv-key">USER MEMORY / FACTS</span><span class="priv-badge local">LOCAL ONLY</span></div>
+          <div class="priv-row"><span class="priv-key">AI QUERIES</span><span class="priv-badge encrypted">ENCRYPTED TRANSIT</span></div>
+          <div class="priv-row"><span class="priv-key">INTERNET ACCESS</span><span class="priv-badge encrypted">PIN PROTECTED</span></div>
+        </div>
+
+        <div class="priv-section">
+          <div class="priv-h">CHANGE PIN</div>
+          <div class="priv-body" style="margin-bottom:8px;">Current PIN is stored locally. Choose a 4-digit PIN.</div>
+          <div class="pin-change-form">
+            <input type="password" id="newPinInput" placeholder="NEW PIN" maxlength="4" inputmode="numeric"/>
+            <button class="btn primary" onclick="changePin()">UPDATE PIN</button>
+          </div>
+          <div style="margin-top:6px;" id="pinChangeMsg"></div>
+        </div>
+
+        <div class="priv-section">
+          <div class="priv-h">ELEVENLABS TTS (OPTIONAL)</div>
+          <div class="priv-body" style="margin-bottom:8px;">Add your ElevenLabs API key for premium voice. Falls back to browser TTS if blank.</div>
+          <div class="tts-section">
+            <div class="tts-row">
+              <span class="tts-label">API KEY</span>
+              <input type="password" class="tts-input" id="elApiKey" placeholder="sk-..." autocomplete="off"/>
+            </div>
+            <div class="tts-row">
+              <span class="tts-label">VOICE ID</span>
+              <input type="text" class="tts-input" id="elVoiceId" placeholder="21m00Tcm4TlvDq8ikWAM" autocomplete="off"/>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <button class="btn primary" onclick="saveElevenLabsConfig()" style="font-size:9px;padding:6px 12px;">SAVE</button>
+              <button class="btn" onclick="testElevenLabsVoice()" style="font-size:9px;padding:6px 12px;">TEST VOICE</button>
+              <span class="tts-status idle" id="ttsStatus">IDLE</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="priv-section">
+          <div class="priv-h">PERSISTENT MEMORY</div>
+          <div class="priv-body" style="margin-bottom:10px;">Facts Jarvis has learned about you. You can add them manually or Jarvis learns from conversation.</div>
+          <div id="memEditList" style="margin-bottom:10px;"></div>
+          <div class="mem-edit-row">
+            <input type="text" class="mem-edit-input" id="memKeyInput" placeholder="Key (e.g. name)"/>
+            <input type="text" class="mem-edit-input" id="memValInput" placeholder="Value (e.g. Tony)"/>
+            <button class="btn primary" onclick="addMemoryFact()" style="font-size:9px;padding:6px 10px;">ADD</button>
+          </div>
+          <div style="margin-top:8px;">
+            <button class="btn" onclick="clearMemory()" style="font-size:9px;border-color:var(--accent);color:var(--accent);">CLEAR MEMORY</button>
+          </div>
+        </div>
+
+        <div class="priv-section">
+          <div class="priv-h">DATA MANAGEMENT</div>
+          <div style="display:flex;gap:10px;margin-top:6px;">
+            <button class="btn" onclick="exportData()">EXPORT MY DATA</button>
+            <button class="btn" onclick="wipeAll()" style="border-color:var(--accent);color:var(--accent);">WIPE ALL DATA</button>
+          </div>
+        </div>
+
+        <div class="priv-section">
+          <div class="priv-h">CAPABILITIES IN BROWSER</div>
+          <div class="priv-row"><span class="priv-key">AI CHAT + VOICE I/O</span><span class="priv-val" style="color:var(--success)">AVAILABLE</span></div>
+          <div class="priv-row"><span class="priv-key">STREAMING RESPONSES</span><span class="priv-val" style="color:var(--success)">AVAILABLE</span></div>
+          <div class="priv-row"><span class="priv-key">MARKDOWN RENDERING</span><span class="priv-val" style="color:var(--success)">AVAILABLE</span></div>
+          <div class="priv-row"><span class="priv-key">IMAGE ANALYSIS</span><span class="priv-val" style="color:var(--success)">AVAILABLE (DRAG & DROP)</span></div>
+          <div class="priv-row"><span class="priv-key">HEY JARVIS HOTWORD</span><span class="priv-val" style="color:var(--success)">AVAILABLE</span></div>
+          <div class="priv-row"><span class="priv-key">TIMED REMINDERS</span><span class="priv-val" style="color:var(--success)">AVAILABLE</span></div>
+          <div class="priv-row"><span class="priv-key">ELEVENLABS TTS</span><span class="priv-val" style="color:var(--success)">AVAILABLE (KEY REQUIRED)</span></div>
+          <div class="priv-row"><span class="priv-key">NOTES + HISTORY</span><span class="priv-val" style="color:var(--success)">AVAILABLE</span></div>
+          <div class="priv-row"><span class="priv-key">WEATHER (ONLINE)</span><span class="priv-val" style="color:var(--success)">AVAILABLE</span></div>
+          <div class="priv-row"><span class="priv-key">WIFI/BT/SYSTEM CTRL</span><span class="priv-val" style="color:var(--accent)">NEEDS NATIVE APP</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// =================== STATE ===================
+let PIN = localStorage.getItem('jarvis_pin') || '1234';
+let internetEnabled = false;
+let isListening = false;
+let recognition = null;
+let lockPinBuffer = '';
+let modalPinBuffer = '';
+let pendingModalAction = null;
+let hotwordActive = false;
+let hotwordRecognition = null;
+let pendingImageData = null; // { base64, mediaType, name }
+let activeReminders = []; // { id, text, triggerMs, timeoutId, displayTime }
+
+const notes = JSON.parse(localStorage.getItem('jarvis_notes') || '[]');
+const history = JSON.parse(localStorage.getItem('jarvis_history') || '[]');
+let conversationHistory = [];
+
+// =================== PERSISTENT MEMORY ===================
+function getMemory() {
+  return JSON.parse(localStorage.getItem('jarvis_memory') || '{}');
+}
+function setMemory(mem) {
+  localStorage.setItem('jarvis_memory', JSON.stringify(mem));
+}
+function addMemoryFact() {
+  const key = document.getElementById('memKeyInput').value.trim().toLowerCase();
+  const val = document.getElementById('memValInput').value.trim();
+  if (!key || !val) return;
+  const mem = getMemory();
+  mem[key] = val;
+  setMemory(mem);
+  document.getElementById('memKeyInput').value = '';
+  document.getElementById('memValInput').value = '';
+  renderMemory();
+  renderMemoryPrivacy();
+}
+function deleteMemoryFact(key) {
+  const mem = getMemory();
+  delete mem[key];
+  setMemory(mem);
+  renderMemory();
+  renderMemoryPrivacy();
+}
+function clearMemory() {
+  if (!confirm('Clear all memory? Jarvis will forget everything it learned about you.')) return;
+  setMemory({});
+  renderMemory();
+  renderMemoryPrivacy();
+}
+function renderMemory() {
+  const mem = getMemory();
+  const el = document.getElementById('memoryDisplay');
+  const keys = Object.keys(mem);
+  if (keys.length === 0) {
+    el.innerHTML = '<div class="mem-empty">NO FACTS LEARNED YET</div>';
+    return;
+  }
+  el.innerHTML = keys.slice(0,6).map(k => `
+    <div class="mem-item">
+      <span class="mem-key">${k.toUpperCase()}</span>
+      <span class="mem-val">${mem[k]}</span>
+    </div>
+  `).join('');
+  if (keys.length > 6) {
+    el.innerHTML += `<div class="mem-empty">+${keys.length-6} MORE IN PRIVACY</div>`;
+  }
+}
+function renderMemoryPrivacy() {
+  const mem = getMemory();
+  const el = document.getElementById('memEditList');
+  const keys = Object.keys(mem);
+  if (keys.length === 0) {
+    el.innerHTML = '<div class="mem-empty" style="text-align:left;padding:0;">No facts stored.</div>';
+    return;
+  }
+  el.innerHTML = keys.map(k => `
+    <div class="mem-item" style="align-items:center;">
+      <span class="mem-key">${k.toUpperCase()}</span>
+      <span class="mem-val" style="flex:1;margin:0 8px;">${mem[k]}</span>
+      <button class="rsb-del" onclick="deleteMemoryFact('${k}')">✕</button>
+    </div>
+  `).join('');
+}
+
+// Learn a fact from conversation (called by AI function)
+function learnFact(key, value) {
+  const mem = getMemory();
+  mem[key.toLowerCase()] = value;
+  setMemory(mem);
+  renderMemory();
+  renderMemoryPrivacy();
+}
+
+function buildMemoryContext() {
+  const mem = getMemory();
+  const keys = Object.keys(mem);
+  if (keys.length === 0) return '';
+  return '\n\n[USER FACTS: ' + keys.map(k => `${k}=${mem[k]}`).join(', ') + ']';
+}
+
+// =================== ELEVENLABS TTS ===================
+function saveElevenLabsConfig() {
+  const key = document.getElementById('elApiKey').value.trim();
+  const voiceId = document.getElementById('elVoiceId').value.trim();
+  localStorage.setItem('el_api_key', key);
+  localStorage.setItem('el_voice_id', voiceId);
+  document.getElementById('ttsStatus').textContent = 'SAVED';
+  document.getElementById('ttsStatus').className = 'tts-status ok';
+  setTimeout(() => {
+    document.getElementById('ttsStatus').textContent = 'IDLE';
+    document.getElementById('ttsStatus').className = 'tts-status idle';
+  }, 2000);
+}
+
+async function testElevenLabsVoice() {
+  await speak('Online. Systems ready. How can I help?');
+}
+
+async function speakElevenLabs(text) {
+  const key = localStorage.getItem('el_api_key');
+  const voiceId = localStorage.getItem('el_voice_id') || '21m00Tcm4TlvDq8ikWAM';
+  if (!key) return false;
+  try {
+    document.getElementById('ttsStatus').textContent = 'SPEAKING';
+    document.getElementById('ttsStatus').className = 'tts-status ok';
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text: text.replace(/<[^>]+>/g, '').substring(0, 1000),
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+      })
+    });
+    if (!res.ok) throw new Error('EL failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => {
+      document.getElementById('ttsStatus').textContent = 'IDLE';
+      document.getElementById('ttsStatus').className = 'tts-status idle';
+      URL.revokeObjectURL(url);
+    };
+    audio.play();
+    return true;
+  } catch(e) {
+    document.getElementById('ttsStatus').textContent = 'ERROR';
+    document.getElementById('ttsStatus').className = 'tts-status fail';
+    setTimeout(() => {
+      document.getElementById('ttsStatus').textContent = 'IDLE';
+      document.getElementById('ttsStatus').className = 'tts-status idle';
+    }, 2000);
+    return false;
+  }
+}
+
+async function speak(text) {
+  const clean = text.replace(/<[^>]+>/g, '').replace(/[*_`#]/g, '');
+  // Try ElevenLabs first
+  const elUsed = await speakElevenLabs(clean);
+  if (elUsed) return;
+  // Fallback to Web Speech API
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(clean);
+  utt.rate = 1.05;
+  utt.pitch = 0.82;
+  utt.volume = 0.95;
+  const voices = window.speechSynthesis.getVoices();
+  const pref = voices.find(v =>
+    v.name.includes('Google UK English Male') ||
+    v.name.includes('Daniel') ||
+    v.name.includes('Alex') ||
+    v.name.includes('Fred')
+  );
+  if (pref) utt.voice = pref;
+  window.speechSynthesis.speak(utt);
+}
+
+// =================== LOCK ===================
+function lockApp() {
+  document.getElementById('lockScreen').style.display = 'flex';
+  lockPinBuffer = '';
+  updateLockDots();
+  document.getElementById('lockErr').textContent = '';
+}
+
+function unlockApp() {
+  document.getElementById('lockScreen').style.display = 'none';
+  addSystemMsg('Session started — ' + new Date().toLocaleString());
+}
+
+function updateLockDots() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('ld' + i);
+    d.classList.toggle('filled', i < lockPinBuffer.length);
+    d.classList.remove('error');
+  }
+}
+
+document.querySelectorAll('#lockPad .pin-key').forEach(k => {
+  k.addEventListener('click', () => {
+    const v = k.dataset.v;
+    if (v === 'del') {
+      lockPinBuffer = lockPinBuffer.slice(0, -1);
+      updateLockDots();
+    } else if (v === 'ok') {
+      if (lockPinBuffer === PIN) {
+        unlockApp();
+      } else {
+        document.getElementById('lockErr').textContent = 'INCORRECT PIN';
+        for (let i = 0; i < 4; i++) {
+          const d = document.getElementById('ld' + i);
+          if (i < lockPinBuffer.length) d.classList.add('error');
+        }
+        setTimeout(() => {
+          lockPinBuffer = '';
+          updateLockDots();
+          document.getElementById('lockErr').textContent = '';
+        }, 900);
+      }
+    } else if (lockPinBuffer.length < 4) {
+      lockPinBuffer += v;
+      updateLockDots();
+      if (lockPinBuffer.length === 4) {
+        setTimeout(() => document.querySelector('#lockPad .pin-key[data-v="ok"]').click(), 100);
+      }
+    }
+  });
+});
+
+// =================== INTERNET LOCK ===================
+const inetToggle = document.getElementById('inetToggle');
+inetToggle.addEventListener('change', () => {
+  if (inetToggle.checked && !internetEnabled) {
+    inetToggle.checked = false;
+    showInetModal(() => {
+      internetEnabled = true;
+      inetToggle.checked = true;
+      updateInetUI();
+    });
+  } else if (!inetToggle.checked) {
+    internetEnabled = false;
+    updateInetUI();
+  }
+});
+
+function updateInetUI() {
+  const dot = document.getElementById('inetDot');
+  const label = document.getElementById('inetLabel');
+  const statusText = document.getElementById('inetStatusText');
+  if (internetEnabled) {
+    dot.className = 'dot';
+    label.textContent = 'NET ONLINE';
+    statusText.textContent = 'INTERNET ACCESS ACTIVE';
+    statusText.className = 'inet-status on';
+  } else {
+    dot.className = 'dot off';
+    label.textContent = 'NET LOCKED';
+    statusText.textContent = 'LOCKED — PIN REQUIRED';
+    statusText.className = 'inet-status off';
+  }
+}
+
+function showInetModal(onSuccess) {
+  pendingModalAction = onSuccess;
+  modalPinBuffer = '';
+  updateModalDots();
+  document.getElementById('modalErr').textContent = '';
+  document.getElementById('inetModal').classList.add('show');
+}
+
+function updateModalDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('mpd' + i).classList.toggle('filled', i < modalPinBuffer.length);
+  }
+}
+
+document.querySelectorAll('.modal-key').forEach(k => {
+  k.addEventListener('click', () => {
+    const v = k.dataset.mv;
+    if (v === 'cancel') {
+      document.getElementById('inetModal').classList.remove('show');
+      modalPinBuffer = '';
+    } else if (v === 'del') {
+      modalPinBuffer = modalPinBuffer.slice(0, -1);
+      updateModalDots();
+    } else if (modalPinBuffer.length < 4) {
+      modalPinBuffer += v;
+      updateModalDots();
+      if (modalPinBuffer.length === 4) {
+        setTimeout(() => {
+          if (modalPinBuffer === PIN) {
+            document.getElementById('inetModal').classList.remove('show');
+            if (pendingModalAction) pendingModalAction();
+          } else {
+            document.getElementById('modalErr').textContent = 'INCORRECT PIN';
+            setTimeout(() => {
+              modalPinBuffer = '';
+              updateModalDots();
+              document.getElementById('modalErr').textContent = '';
+            }, 900);
+          }
+        }, 100);
+      }
+    }
+  });
+});
+
+// =================== CLOCK ===================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockT').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+  document.getElementById('clockD').textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// =================== BATTERY ===================
+async function updateBattery() {
+  if (navigator.getBattery) {
+    const bat = await navigator.getBattery();
+    const pct = Math.round(bat.level * 100);
+    const charging = bat.charging;
+    document.getElementById('batteryChip').innerHTML =
+      `<div class="dot ${pct < 20 ? '' : 'warn'}"></div> BAT ${pct}%${charging ? ' ⚡' : ''}`;
+    bat.addEventListener('levelchange', updateBattery);
+    bat.addEventListener('chargingchange', updateBattery);
+    return `${pct}%${charging ? ' and charging' : ''}`;
+  }
+  return 'unavailable in this browser';
+}
+updateBattery();
+
+// =================== NOTES ===================
+function saveNotes() {
+  localStorage.setItem('jarvis_notes', JSON.stringify(notes));
+  renderNotes();
+}
+
+function renderNotes() {
+  const grid = document.getElementById('notesGrid');
+  if (notes.length === 0) {
+    grid.innerHTML = '<div class="empty-state">NO NOTES — SAY "SAVE NOTE: TEXT" OR TYPE ABOVE</div>';
+    return;
+  }
+  grid.innerHTML = notes.map((n, i) => `
+    <div class="note-card">
+      <div class="note-card-text">${n.text}</div>
+      <div class="note-card-footer">
+        <div class="note-card-ts">${n.time}</div>
+        <button class="note-del" onclick="deleteNote(${i})">DELETE</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteNote(i) { notes.splice(i, 1); saveNotes(); }
+function clearNotes() { notes.length = 0; saveNotes(); }
+
+function addNote(text) {
+  const now = new Date();
+  const time = now.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  notes.unshift({ text, time });
+  saveNotes();
+  return time;
+}
+
+function addNoteManual() {
+  const inp = document.getElementById('noteInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  const time = addNote(text);
+  inp.value = '';
+  addMsg('system', `Note saved at ${time}`);
+  switchTab('notes');
+}
+
+renderNotes();
+
+// =================== HISTORY ===================
+function saveHistory() {
+  localStorage.setItem('jarvis_history', JSON.stringify(history.slice(-200)));
+}
+
+function addToHistory(role, text) {
+  const now = new Date();
+  const ts = now.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  history.push({ role, text, ts });
+  saveHistory();
+  if (document.getElementById('historyView').classList.contains('active')) renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (history.length === 0) {
+    list.innerHTML = '<div class="empty-state">NO HISTORY YET</div>';
+    return;
+  }
+  list.innerHTML = [...history].reverse().map(h => `
+    <div class="hist-item">
+      <div class="hist-role ${h.role === 'user' ? 'you' : 'jarvis'}">${h.role === 'user' ? 'YOU' : 'JARVIS'}</div>
+      <div class="hist-text">${h.text}</div>
+      <div class="hist-ts">${h.ts}</div>
+    </div>
+  `).join('');
+}
+
+function clearHistory() {
+  history.length = 0;
+  saveHistory();
+  renderHistory();
+  addMsg('system', 'Conversation history cleared.');
+}
+
+// =================== TIMED REMINDERS ===================
+function parseTimeFromText(text) {
+  // Patterns: "in X minutes", "in X hours", "at HH:MM", "in X seconds"
+  const inMinMatch = text.match(/in\s+(\d+)\s+min/i);
+  const inHrMatch = text.match(/in\s+(\d+)\s+hour/i);
+  const inSecMatch = text.match(/in\s+(\d+)\s+sec/i);
+  const atTimeMatch = text.match(/at\s+(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+
+  if (inSecMatch) return Date.now() + parseInt(inSecMatch[1]) * 1000;
+  if (inMinMatch) return Date.now() + parseInt(inMinMatch[1]) * 60000;
+  if (inHrMatch) return Date.now() + parseInt(inHrMatch[1]) * 3600000;
+  if (atTimeMatch) {
+    const now = new Date();
+    let h = parseInt(atTimeMatch[1]);
+    const m = parseInt(atTimeMatch[2]);
+    const ampm = atTimeMatch[3];
+    if (ampm) {
+      if (ampm.toLowerCase() === 'pm' && h < 12) h += 12;
+      if (ampm.toLowerCase() === 'am' && h === 12) h = 0;
+    }
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+    if (target <= now) target.setDate(target.getDate() + 1); // next day
+    return target.getTime();
+  }
+  return null;
+}
+
+function stripTimeFromText(text) {
+  return text
+    .replace(/\bin\s+\d+\s+(second|minute|hour)s?\b/gi, '')
+    .replace(/\bat\s+\d{1,2}:\d{2}\s*(am|pm)?\b/gi, '')
+    .replace(/^(remind me to?|remind me|set a reminder to?|set reminder):?\s*/i, '')
+    .trim() || text;
+}
+
+function setTimedReminder(fullText) {
+  const triggerMs = parseTimeFromText(fullText);
+  if (!triggerMs) return null;
+
+  const reminderText = stripTimeFromText(fullText);
+  const id = Date.now();
+  const triggerDate = new Date(triggerMs);
+  const displayTime = triggerDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const delayMs = triggerMs - Date.now();
+
+  const timeoutId = setTimeout(() => {
+    fireReminder(id, reminderText);
+  }, delayMs);
+
+  const rem = { id, text: reminderText, triggerMs, timeoutId, displayTime };
+  activeReminders.push(rem);
+  renderReminderSidebar();
+
+  const mins = Math.round(delayMs / 60000);
+  const secs = Math.round(delayMs / 1000);
+  return mins < 1 ? `${secs}s` : `${mins}m`;
+}
+
+function fireReminder(id, text) {
+  // Remove from active
+  const idx = activeReminders.findIndex(r => r.id === id);
+  if (idx > -1) activeReminders.splice(idx, 1);
+  renderReminderSidebar();
+
+  // Show toast
+  showReminderToast(text);
+  speak('Reminder: ' + text);
+  addMsg('system', `REMINDER: ${text}`);
+}
+
+function showReminderToast(text) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'reminder-toast';
+  toast.innerHTML = `
+    <div class="toast-icon">⏰</div>
+    <div class="toast-body">
+      <div class="toast-title">REMINDER</div>
+      <div class="toast-text">${text}</div>
+    </div>
+    <button class="toast-close" onclick="this.closest('.reminder-toast').remove()">✕</button>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 12000);
+}
+
+function cancelReminder(id) {
+  const idx = activeReminders.findIndex(r => r.id === id);
+  if (idx > -1) {
+    clearTimeout(activeReminders[idx].timeoutId);
+    activeReminders.splice(idx, 1);
+    renderReminderSidebar();
+  }
+}
+
+function renderReminderSidebar() {
+  const el = document.getElementById('reminderSidebarList');
+  if (activeReminders.length === 0) {
+    el.innerHTML = '<div class="rem-empty">NO ACTIVE REMINDERS</div>';
+    return;
+  }
+  el.innerHTML = activeReminders.map(r => `
+    <div class="reminder-sidebar-item">
+      <span class="rsb-text">${r.text}</span>
+      <span class="rsb-time">${r.displayTime}</span>
+      <button class="rsb-del" onclick="cancelReminder(${r.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+// =================== CHAT / MESSAGES ===================
+function addMsg(role, html, isMarkdown = false) {
+  const win = document.getElementById('chatWindow');
+  const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  let content = html;
+  if (isMarkdown && role === 'jarvis') {
+    content = marked.parse(html);
+  }
+
+  if (role === 'system') {
+    div.innerHTML = `<div class="msg-body">${content}</div>`;
+  } else {
+    div.innerHTML = `
+      <div class="msg-who">${role === 'user' ? 'YOU' : 'JARVIS'}</div>
+      <div class="msg-body">${content}</div>
+      <div class="msg-ts">${now}</div>
+    `;
+  }
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+  return div;
+}
+
+function addSystemMsg(text) { addMsg('system', text); }
+
+function addThinking() {
+  const win = document.getElementById('chatWindow');
+  const div = document.createElement('div');
+  div.className = 'msg jarvis';
+  div.innerHTML = `<div class="msg-who">JARVIS</div><div class="msg-body"><div class="thinking-dots"><span>.</span><span>.</span><span>.</span></div></div>`;
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+  return div;
+}
+
+// Init message
+addMsg('jarvis', 'Online. Systems upgraded — streaming, memory, markdown, image analysis, and Hey Jarvis hotword are active. Enable internet and get started.', true);
+
+// =================== IMAGE DRAG & DROP ===================
+const chatWin = document.getElementById('chatWindow');
+
+chatWin.addEventListener('dragover', e => {
+  e.preventDefault();
+  chatWin.classList.add('drag-over');
+});
+chatWin.addEventListener('dragleave', () => chatWin.classList.remove('drag-over'));
+chatWin.addEventListener('drop', e => {
+  e.preventDefault();
+  chatWin.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) {
+    loadImageAttachment(file);
+  }
+});
+
+// Also support paste
+document.addEventListener('paste', e => {
+  const items = e.clipboardData.items;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      loadImageAttachment(item.getAsFile());
+      break;
+    }
+  }
+});
+
+function loadImageAttachment(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = file.type;
+    pendingImageData = { base64, mediaType, name: file.name || 'image.png' };
+    document.getElementById('imgPreviewThumb').src = dataUrl;
+    document.getElementById('imgPreviewName').textContent = file.name || 'image.png';
+    document.getElementById('imgPreviewBar').classList.add('show');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImageAttachment() {
+  pendingImageData = null;
+  document.getElementById('imgPreviewBar').classList.remove('show');
+  document.getElementById('imgPreviewThumb').src = '';
+}
+
+// =================== LOCAL COMMANDS ===================
+async function handleLocal(input) {
+  const l = input.toLowerCase().trim();
+
+  if (l.match(/^(what('s| is)? the time|time( now)?|current time)$/)) {
+    return 'It\'s ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.';
+  }
+
+  if (l.match(/^(what('s| is)? (the )?date|today'?s? date)$/)) {
+    return 'Today is ' + new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + '.';
+  }
+
+  if (l.includes('battery')) {
+    if (navigator.getBattery) {
+      const bat = await navigator.getBattery();
+      const pct = Math.round(bat.level * 100);
+      return `Battery is at ${pct}%${bat.charging ? ', currently charging.' : '.'}`;
+    }
+    return 'Battery info is not available in this browser.';
+  }
+
+  const saveMatch = input.match(/^(save (a )?note|note down|remember( this)?|note):?\s*(.+)/i);
+  if (saveMatch) {
+    const text = saveMatch[4] || saveMatch[3];
+    if (text && text.length > 2) { const t = addNote(text.trim()); return `Saved your note at ${t}.`; }
+  }
+
+  if (l.match(/show (my )?notes/)) {
+    if (notes.length === 0) return 'No notes saved yet.';
+    return `You have ${notes.length} note(s). Check the Notes tab to see them all.`;
+  }
+
+  if (l.match(/^clear (all )?notes$/)) { clearNotes(); return 'All notes cleared.'; }
+
+  // TIMED REMINDER
+  const remMatch = input.match(/^(set a? ?reminder|remind me):?\s*(.+)/i);
+  if (remMatch) {
+    const fullText = remMatch[2] || input;
+    const timeUntil = setTimedReminder(input);
+    if (timeUntil) {
+      const reminderText = stripTimeFromText(fullText);
+      return `Reminder set for "${reminderText}" in ${timeUntil}.`;
+    } else {
+      // No time specified — just save as note
+      const text = fullText.replace(/^(set a? ?reminder|remind me):?\s*/i, '').trim();
+      if (text) { const t = addNote('[REMINDER] ' + text); return `Reminder saved as a note at ${t}. (Tip: say "remind me in 10 minutes: call John" for a timed reminder)`; }
+    }
+  }
+
+  if (l.match(/^(what can you do|help|commands)$/)) {
+    return `Here's what I can do:\n\n- **Chat & answer questions** with streaming responses\n- **Save notes** ("save note: text")\n- **Timed reminders** ("remind me in 10 minutes: call John")\n- **Tell time, date, battery**\n- **Weather** (internet required)\n- **Analyze images** (drag & drop an image)\n- **Hey Jarvis** hotword (enable in sidebar)\n- **Remember facts** about you (stored in memory)\n\nSystem controls like WiFi and app launching need a native app.`;
+  }
+
+  if (l.includes('weather') || l.includes('news') || l.includes('search')) {
+    if (!internetEnabled) {
+      return 'That needs internet access. Enable it using the toggle in the sidebar, then ask again.';
+    }
+  }
+
+  return null;
+}
+
+// =================== WEATHER ===================
+async function getWeather(city = '') {
+  if (!internetEnabled) return 'Internet is locked. Enable it first.';
+  try {
+    const q = city || 'auto:ip';
+    const res = await fetch(`https://wttr.in/${encodeURIComponent(q)}?format=j1`);
+    const data = await res.json();
+    const cur = data.current_condition[0];
+    const area = data.nearest_area[0];
+    const loc = area.areaName[0].value + ', ' + area.country[0].value;
+    const temp = cur.temp_C + '°C / ' + cur.temp_F + '°F';
+    const desc = cur.weatherDesc[0].value;
+    const humidity = cur.humidity + '%';
+    const wind = cur.windspeedKmph + 'km/h';
+    return `Weather in ${loc}: ${desc}. Temperature: ${temp}. Humidity: ${humidity}. Wind: ${wind}.`;
+  } catch(e) {
+    return 'Could not fetch weather. Check your connection.';
+  }
+}
+
+// =================== AI (STREAMING) ===================
+const SYSTEM_PROMPT = `You are Jarvis, a personal AI assistant. Smart, calm, efficient. Like having a brilliant friend who gives you real information.
+
+Style:
+- Short, direct responses. 1-4 sentences unless the user needs detail.
+- Use markdown formatting when it genuinely helps: code blocks, bullet lists, bold for emphasis. Don't overdo it.
+- Never say "Certainly!" or "Great question!" or any filler.
+- Professional but conversational.
+
+Memory:
+- You have access to facts about the user in your context as [USER FACTS: ...].
+- Reference these naturally when relevant. Don't announce "I see your name is X", just use it.
+- If you learn a new fact about the user (name, location, preference, habit), say EXACTLY this at the END of your response on its own line: LEARN_FACT:key=value (e.g. LEARN_FACT:name=Tony). Only do this for genuinely useful facts worth remembering.
+
+Capabilities:
+- Answer questions, help with tasks, writing, analysis, planning
+- Tell time, date, battery, weather (when online)
+- Analyze images when they're provided
+
+Limitations:
+- Cannot control hardware or open native apps from a browser
+- Those need a native app build`;
+
+async function askJarvis(userMsg, imageData = null) {
+  if (!internetEnabled) {
+    return 'Internet is locked. Enable it in the sidebar to use AI responses.';
+  }
+
+  const mem = buildMemoryContext();
+  const thinkingEl = addThinking();
+
+  // Build message content
+  let msgContent;
+  if (imageData) {
+    msgContent = [
+      {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: imageData.mediaType,
+          data: imageData.base64
+        }
+      },
+      { type: 'text', text: userMsg || 'Describe and analyze this image.' }
+    ];
+  } else {
+    msgContent = userMsg;
+  }
+
+  conversationHistory.push({ role: 'user', content: msgContent });
+
+  // Create streaming message bubble
+  thinkingEl.remove();
+  const win = document.getElementById('chatWindow');
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'msg jarvis';
+  const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  msgDiv.innerHTML = `
+    <div class="msg-who">JARVIS</div>
+    <div class="msg-body" id="streamBody"></div>
+    <div class="msg-ts">${now}</div>
+  `;
+  win.appendChild(msgDiv);
+  win.scrollTop = win.scrollHeight;
+
+  const streamBody = document.getElementById('streamBody');
+  streamBody.innerHTML = '<span class="stream-cursor"></span>';
+
+  let fullText = '';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        stream: true,
+        system: SYSTEM_PROMPT + mem,
+        messages: conversationHistory
+      })
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+              fullText += parsed.delta.text;
+              // Render markdown in real-time
+              streamBody.innerHTML = marked.parse(fullText) + '<span class="stream-cursor"></span>';
+              win.scrollTop = win.scrollHeight;
+            }
+          } catch(e) { /* skip malformed */ }
+        }
+      }
+    }
+
+    // Remove cursor, finalize render
+    streamBody.innerHTML = marked.parse(fullText);
+
+    // Check for LEARN_FACT
+    const factMatch = fullText.match(/LEARN_FACT:(\w+)=(.+?)(?:\n|$)/);
+    if (factMatch) {
+      learnFact(factMatch[1], factMatch[2].trim());
+      // Remove the LEARN_FACT line from displayed text
+      const cleanText = fullText.replace(/LEARN_FACT:\w+=.+?(?:\n|$)/g, '').trim();
+      streamBody.innerHTML = marked.parse(cleanText);
+      fullText = cleanText;
+    }
+
+    conversationHistory.push({ role: 'assistant', content: fullText });
+    if (conversationHistory.length > 30) conversationHistory = conversationHistory.slice(-30);
+
+    return fullText;
+
+  } catch (e) {
+    streamBody.innerHTML = 'Connection error. Check internet access.';
+    return 'Connection error.';
+  }
+}
+
+// =================== SEND ===================
+async function sendMessage(text) {
+  const trimmed = text.trim();
+  if (!trimmed && !pendingImageData) return;
+
+  document.getElementById('textInput').value = '';
+
+  // If image attached, show it in chat
+  const imgData = pendingImageData;
+  if (imgData) {
+    const win = document.getElementById('chatWindow');
+    const imgMsg = document.createElement('div');
+    imgMsg.className = 'msg user';
+    const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    imgMsg.innerHTML = `
+      <div class="msg-who">YOU</div>
+      <img class="msg-image" src="data:${imgData.mediaType};base64,${imgData.base64}" alt="uploaded image"/>
+      ${trimmed ? `<div class="msg-body">${trimmed}</div>` : ''}
+      <div class="msg-ts">${now}</div>
+    `;
+    win.appendChild(imgMsg);
+    win.scrollTop = win.scrollHeight;
+    clearImageAttachment();
+  } else {
+    addMsg('user', trimmed);
+  }
+
+  if (trimmed) {
+    addToHistory('user', trimmed);
+  }
+
+  // Weather check
+  if (trimmed.toLowerCase().includes('weather')) {
+    const cityMatch = trimmed.match(/weather (?:in|for|at) (.+)/i);
+    const city = cityMatch ? cityMatch[1] : '';
+    const reply = await getWeather(city);
+    addMsg('jarvis', reply, true);
+    addToHistory('jarvis', reply);
+    speak(reply);
+    return;
+  }
+
+  // Try local (no image)
+  if (!imgData) {
+    const local = await handleLocal(trimmed);
+    if (local) {
+      addMsg('jarvis', local, true);
+      addToHistory('jarvis', local);
+      speak(local);
+      return;
+    }
+  }
+
+  // AI (with optional image)
+  const reply = await askJarvis(trimmed || 'Analyze this image.', imgData || null);
+  addToHistory('jarvis', reply);
+  speak(reply);
+}
+
+function sendQ(text) {
+  document.getElementById('textInput').value = text;
+  sendMessage(text);
+}
+
+// =================== VOICE I/O ===================
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = document.getElementById('micBtn');
+const visualizer = document.getElementById('visualizer');
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = e => {
+    const t = e.results[0][0].transcript;
+    document.getElementById('textInput').value = t;
+    sendMessage(t);
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    micBtn.classList.remove('listening');
+    micBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg> MIC`;
+    visualizer.classList.remove('active');
+  };
+
+  recognition.onerror = () => recognition.onend();
+
+  micBtn.addEventListener('click', () => {
+    if (isListening) {
+      recognition.stop();
+    } else {
+      isListening = true;
+      micBtn.classList.add('listening');
+      micBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg> STOP`;
+      visualizer.classList.add('active');
+      recognition.start();
+    }
+  });
+} else {
+  micBtn.disabled = true;
+  micBtn.title = 'Voice not supported. Use Chrome.';
+}
+
+// =================== HEY JARVIS HOTWORD ===================
+const hotwordToggle = document.getElementById('hotwordToggle');
+
+hotwordToggle.addEventListener('change', () => {
+  if (hotwordToggle.checked) {
+    startHotword();
+  } else {
+    stopHotword();
+  }
+});
+
+function startHotword() {
+  if (!SpeechRecognition) {
+    addMsg('system', 'Hotword detection requires Chrome or a compatible browser.');
+    hotwordToggle.checked = false;
+    return;
+  }
+  hotwordActive = true;
+  updateHotwordUI(true);
+  runHotwordLoop();
+}
+
+function stopHotword() {
+  hotwordActive = false;
+  if (hotwordRecognition) {
+    try { hotwordRecognition.stop(); } catch(e) {}
+    hotwordRecognition = null;
+  }
+  updateHotwordUI(false);
+}
+
+function runHotwordLoop() {
+  if (!hotwordActive) return;
+  if (isListening) {
+    setTimeout(runHotwordLoop, 500);
+    return;
+  }
+
+  hotwordRecognition = new SpeechRecognition();
+  hotwordRecognition.continuous = false;
+  hotwordRecognition.interimResults = false;
+  hotwordRecognition.lang = 'en-US';
+
+  hotwordRecognition.onresult = e => {
+    const transcript = e.results[0][0].transcript.toLowerCase().trim();
+
+    // Check for "hey jarvis" or "jarvis"
+    if (transcript.includes('hey jarvis') || transcript.startsWith('jarvis')) {
+      // Extract command after hotword
+      const cmd = transcript
+        .replace(/^(hey jarvis|jarvis)[,.]?\s*/i, '')
+        .trim();
+
+      updateHotwordUI(true, true); // active + triggered
+
+      if (cmd.length > 2) {
+        document.getElementById('textInput').value = cmd;
+        sendMessage(cmd);
+      } else {
+        // Just the wake word — start mic for follow-up
+        addMsg('system', 'Listening...');
+        if (!isListening) micBtn.click();
+      }
+
+      setTimeout(() => updateHotwordUI(true, false), 1500);
+    }
+  };
+
+  hotwordRecognition.onend = () => {
+    if (hotwordActive) {
+      setTimeout(runHotwordLoop, 300);
+    }
+  };
+
+  hotwordRecognition.onerror = () => {
+    if (hotwordActive) {
+      setTimeout(runHotwordLoop, 1000);
+    }
+  };
+
+  try {
+    hotwordRecognition.start();
+  } catch(e) {
+    setTimeout(runHotwordLoop, 1000);
+  }
+}
+
+function updateHotwordUI(active, triggered = false) {
+  const dot = document.getElementById('hotwordDot');
+  const label = document.getElementById('hotwordLabel');
+  const chip = document.getElementById('hotwordChip');
+  const status = document.getElementById('hotwordStatusText');
+
+  if (!active) {
+    dot.className = 'dot off';
+    label.textContent = 'HOTWORD OFF';
+    chip.className = 'chip';
+    status.textContent = 'ALWAYS-ON MIC OFF';
+    status.className = 'inet-status off';
+  } else if (triggered) {
+    dot.className = 'dot';
+    label.textContent = 'JARVIS!';
+    chip.className = 'chip hotword-active';
+  } else {
+    dot.className = 'dot warn';
+    label.textContent = 'HEY JARVIS';
+    chip.className = 'chip';
+    status.textContent = 'LISTENING FOR WAKE WORD';
+    status.className = 'inet-status on';
+  }
+}
+
+// =================== SEND EVENTS ===================
+document.getElementById('sendBtn').addEventListener('click', () => sendMessage(document.getElementById('textInput').value));
+document.getElementById('textInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(e.target.value); });
+
+// =================== TABS ===================
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['chat', 'notes', 'history', 'privacy'][i] === tab);
+  });
+  document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
+  document.getElementById(tab + 'View').classList.add('active');
+  if (tab === 'history') renderHistory();
+  if (tab === 'notes') renderNotes();
+  if (tab === 'privacy') { renderMemoryPrivacy(); loadElevenLabsConfig(); }
+}
+
+// =================== PRIVACY ===================
+function changePin() {
+  const inp = document.getElementById('newPinInput');
+  const val = inp.value.trim();
+  const msg = document.getElementById('pinChangeMsg');
+  if (!/^\d{4}$/.test(val)) {
+    msg.innerHTML = '<span style="color:var(--accent);font-family:Share Tech Mono,monospace;font-size:10px;">PIN MUST BE 4 DIGITS</span>';
+    return;
+  }
+  PIN = val;
+  localStorage.setItem('jarvis_pin', PIN);
+  inp.value = '';
+  msg.innerHTML = '<span style="color:var(--success);font-family:Share Tech Mono,monospace;font-size:10px;">PIN UPDATED</span>';
+  setTimeout(() => msg.innerHTML = '', 2000);
+}
+
+function loadElevenLabsConfig() {
+  const key = localStorage.getItem('el_api_key') || '';
+  const voiceId = localStorage.getItem('el_voice_id') || '';
+  document.getElementById('elApiKey').value = key;
+  document.getElementById('elVoiceId').value = voiceId;
+}
+
+function exportData() {
+  const data = {
+    notes,
+    history,
+    memory: getMemory(),
+    exported: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'jarvis-data-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+}
+
+function wipeAll() {
+  if (!confirm('This will delete all notes, history, memory, and your PIN. Are you sure?')) return;
+  localStorage.clear();
+  location.reload();
+}
+
+// =================== INIT ===================
+renderMemory();
+renderMemoryPrivacy();
+renderReminderSidebar();
+lockApp();
+</script>
+</body>
+</html>
